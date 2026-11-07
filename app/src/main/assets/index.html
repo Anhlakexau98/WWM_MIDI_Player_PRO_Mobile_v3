@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>we wish MIDI Player PRO v1.0.8</title>
+<style>
+  :root {
+    --bg-main: #0c0c0e;
+    --bg-sidebar: #111115;
+    --bg-card: #16161c;
+    --bg-input: #1f1f27;
+    --border-color: #292933;
+    --text-primary: #f4f4f6;
+    --text-secondary: #9ca3af;
+    --accent: #10b981;
+    --accent-blue: #3b82f6;
+    --danger: #ef4444;
+    --warn: #f59e0b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg-main); color: var(--text-primary); display: flex; height: 100vh; overflow: hidden; }
+
+  /* Modal chọn ngôn ngữ lần đầu & Modal Hướng dẫn / Cập nhật */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.82); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 20px 36px; }
+  .modal-backdrop.show { display: flex; }
+  .modal-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 22px; max-width: 560px; width: 100%; max-height: 88vh; overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,0.6); }
+  .lang-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+
+  /* Sidebar trái */
+  .sidebar { width: 225px; background: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 14px 12px; flex-shrink: 0; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 14px; border-bottom: 1px solid var(--border-color); margin-bottom: 12px; }
+  .brand-icon { width: 42px; height: 42px; border-radius: 10px; background: linear-gradient(135deg, #10b981, #3b82f6); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; font-size: 10px; line-height: 1.1; border: 1px solid rgba(255,255,255,0.25); }
+  .brand-title { font-size: 14px; font-weight: 800; color: var(--accent); letter-spacing: 0.2px; }
+  .brand-sub { font-size: 11px; color: var(--text-secondary); }
+  .nav-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: none; background: transparent; color: var(--text-secondary); font-size: 13px; font-weight: 600; border-radius: 8px; cursor: pointer; text-align: left; margin-bottom: 4px; }
+  .nav-btn.active, .nav-btn:hover { background: var(--bg-input); color: var(--text-primary); }
+  .author-footer { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border-color); font-size: 11px; text-align: center; color: var(--text-secondary); }
+
+  /* Khung chính - Chừa khoảng lề an toàn (padding-right: 36px) tránh thanh điều hướng Android che nút */
+  .main { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 16px 36px 28px 20px; position: relative; }
+  .top-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; background: var(--bg-card); border: 1px solid var(--border-color); padding: 12px 16px; border-radius: 12px; }
+  .page-title { font-size: 19px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  .page-subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+  .header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  .btn { padding: 9px 14px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary); font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+  .btn:active { transform: scale(0.98); }
+  .btn-accent { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-blue { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); }
+  .btn-warn { background: var(--warn); color: #111; border-color: var(--warn); font-weight: 700; }
+  .btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+  /* Thanh menu di động khi màn hình hẹp */
+  .mobile-nav { display: none; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  @media (max-width: 860px) {
+    .sidebar { display: none; }
+    .mobile-nav { display: flex; }
+    .main { padding: 12px 28px 24px 14px; }
+  }
+
+  .player-grid { display: grid; grid-template-columns: 1fr 350px; gap: 16px; }
+  @media (max-width: 860px) { .player-grid { grid-template-columns: 1fr; } }
+
+  .card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .card-title { font-weight: 700; font-size: 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .table-wrap { border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; background: var(--bg-card); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); }
+  th { color: var(--text-secondary); font-weight: 600; background: rgba(255,255,255,0.02); }
+  tr.active-row { background: rgba(16, 185, 129, 0.22); }
+  .pagination { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 10px 12px; font-size: 12px; color: var(--text-secondary); background: var(--bg-card); border-top: 1px solid var(--border-color); flex-wrap: wrap; }
+  .page-nums { display: flex; gap: 4px; flex-wrap: wrap; }
+  .page-num-btn { padding: 4px 9px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary); font-size: 11px; cursor: pointer; }
+  .page-num-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700; }
+
+  .opt-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; font-size: 13px; gap: 8px; }
+  select.full-select, input.full-input, textarea.full-textarea { width: 100%; padding: 9px 10px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); font-size: 12px; margin: 6px 0 10px; }
+  .status-banner { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); border-radius: 10px; padding: 10px 14px; font-size: 12px; margin-bottom: 14px; line-height: 1.5; }
+  .perm-badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+  .perm-ok { background: rgba(16,185,129,0.2); color: #10b981; }
+  .perm-missing { background: rgba(245,158,11,0.2); color: #f59e0b; }
+  .bottom-author-bar { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border-color); text-align: center; font-size: 12px; color: var(--text-secondary); }
+</style>
+</head>
+<body>
+
+  <!-- 1. Modal Chọn Ngôn Ngữ Lần Đầu Khi Bật App -->
+  <div class="modal-backdrop" id="langModal">
+    <div class="modal-box" style="max-width:420px;text-align:center;">
+      <div style="font-size:34px;margin-bottom:6px;">🎹🪕</div>
+      <h2 style="font-size:18px;margin-bottom:6px;color:#10b981;">we wish MIDI Player PRO</h2>
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">
+        Bạn muốn chọn ngôn ngữ nào? / Choose your language / 请选择语言 / Choisissez votre langue:
+      </p>
+      <div class="lang-grid">
+        <button class="btn btn-accent" onclick="chooseInitialLanguage('vi')" style="justify-content:center;padding:12px;">🇻🇳 Tiếng Việt</button>
+        <button class="btn" onclick="chooseInitialLanguage('zh')" style="justify-content:center;padding:12px;">🇨🇳 中文 (Tiếng Trung)</button>
+        <button class="btn" onclick="chooseInitialLanguage('en')" style="justify-content:center;padding:12px;">🇬🇧 English</button>
+        <button class="btn" onclick="chooseInitialLanguage('fr')" style="justify-content:center;padding:12px;">🇫🇷 Français</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Modal Hướng Dẫn Sử Dụng (Mở khi bấm nút "? Hướng dẫn" ở góc trên bên phải) -->
+  <div class="modal-backdrop" id="guideModal">
+    <div class="modal-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid var(--border-color);padding-bottom:8px;">
+        <h3 style="font-size:16px;color:#10b981;">❓ <span data-i18n="guide_title">Hướng dẫn sử dụng we wish MIDI</span></h3>
+        <button class="btn btn-danger" onclick="closeGuideModal()" style="padding:5px 12px;">✖ <span data-i18n="btn_close">Đóng</span></button>
+      </div>
+      <div style="font-size:13px;color:var(--text-primary);line-height:1.7;" id="guideContentBody">
+        <p><strong>1. Cấp quyền lần đầu:</strong> Ở khung bên phải màn hình chính, bấm <strong>⚙️ Mở Menu Trợ Năng</strong> để bật dịch vụ tự động chạm <em>we wish MIDI</em>, và bấm <strong>🪟 Cấp quyền Cửa sổ nổi</strong>.</p>
+        <p style="margin-top:8px;"><strong>2. Chọn thư mục chứa nhạc MIDI:</strong> Bấm nút <strong>📂 Chọn thư mục MIDI</strong>, chọn thư mục chứa các bài <code>.mid</code> trên máy rồi bấm xác nhận. Toàn bộ bài hát trong thư mục sẽ hiện ra danh sách (tối đa 10 bài/trang).</p>
+        <p style="margin-top:8px;"><strong>3. Nạp MIDI từ list:</strong> Chạm vào tên bài hát bạn muốn chơi trong danh sách, sau đó bấm nút màu xanh <strong>📥 Nạp MIDI từ list</strong> nằm ngay bên dưới bảng.</p>
+        <p style="margin-top:8px;"><strong>4. Sắp xếp vị trí nút & Không mất dữ liệu khi Update:</strong> Bấm <strong>🚀 Bật Thanh Nổi</strong>. Trên thanh nổi bấm <strong>🎯 Hiện phím</strong> để kéo 21/36 nút vào đúng vị trí đàn trong game rồi bấm <strong>💾 Lưu & Ẩn</strong>. Tọa độ nút được tự động sao lưu vào máy và giữ nguyên khi bạn cập nhật phiên bản mới!</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar Trái -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">
+        <span>we wish</span>
+        <span style="font-size:14px;">🪕</span>
+      </div>
+      <div>
+        <div class="brand-title">we wish 🪕</div>
+        <div class="brand-sub">MIDI Player v1.0.8</div>
+      </div>
+    </div>
+    <button class="nav-btn active" onclick="switchPage('player', this)">▶ <span data-i18n="nav_player">Trình phát MIDI</span></button>
+    <button class="nav-btn" onclick="switchPage('update', this)">🔄 <span data-i18n="nav_update">Cập nhật & Sao lưu nút</span></button>
+    <button class="nav-btn" onclick="switchPage('settings', this)">⚙ <span data-i18n="nav_settings">Ngôn ngữ & Cài đặt</span></button>
+    <button class="nav-btn" onclick="openGuideModal()">❓ <span data-i18n="btn_guide">Hướng dẫn</span></button>
+    <div class="author-footer">
+      <span data-i18n="author_label">Tác giả</span>: <strong>Anhlakexau98</strong>
+    </div>
+  </aside>
+
+  <!-- Nội dung chính -->
+  <main class="main">
+    <!-- Thanh chuyển tab nhanh trên màn hình nhỏ -->
+    <div class="mobile-nav">
+      <button class="btn" onclick="switchPage('player', null)">▶ <span data-i18n="nav_player">Trình phát</span></button>
+      <button class="btn" onclick="switchPage('update', null)">🔄 <span data-i18n="nav_update">Cập nhật & Sao lưu</span></button>
+      <button class="btn" onclick="switchPage('settings', null)">⚙ <span data-i18n="nav_settings">Cài đặt</span></button>
+    </div>
+
+    <!-- Header trên cùng: Có nút "? Hướng dẫn" rõ ràng ở góc trên bên phải, không bị che khuất -->
+    <div class="top-header">
+      <div>
+        <div class="page-title">
+          <span>🪕 we wish MIDI Player</span>
+        </div>
+        <div class="page-subtitle" data-i18n="player_sub">
+          Chọn thư mục chứa MIDI, chọn bài hát từ danh sách và bấm Nạp MIDI từ list để tự động gảy đàn.
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-blue" onclick="switchPage('update', null)">🔄 <span data-i18n="btn_update_short">Cập nhật</span></button>
+        <button class="btn btn-warn" onclick="openGuideModal()">❓ <span data-i18n="btn_guide">Hướng dẫn</span></button>
+      </div>
+    </div>
+
+    <!-- Thông báo trạng thái bài MIDI đang nạp -->
+    <div class="status-banner" id="smartStatusBox">
+      🧠 <strong data-i18n="status_loaded">Bài đang nạp:</strong> <em id="loadedSongName">Lan Đình Tự (Lanting Xu)</em> •
+      <span id="loadedSongDetail">38 nốt / 38 nhịp • Tự động dịch tông: 0 bán cung • Chế độ: 21 Phím Trắng</span>
+    </div>
+
+    <!-- TRANG 1: TRÌNH PHÁT MIDI -->
+    <div id="page-player">
+      <div class="player-grid">
+        <!-- Cột trái: Chọn thư mục & Danh sách 10 bài/trang + Nút Nạp MIDI từ list -->
+        <div>
+          <div class="card" style="padding:12px 14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+              <div>
+                <div style="font-weight:700;font-size:13px;" id="folderStatusText" data-i18n="folder_default">📁 Danh sách MIDI (Chạm để chọn bài)</div>
+                <div style="font-size:11px;color:var(--text-secondary);" id="totalSongsBadge">2 bài hát • Tối đa 10 bài / trang</div>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <!-- Chọn thư mục Native Android (ACTION_OPEN_DOCUMENT_TREE) + Fallback input -->
+                <input type="file" id="fallbackFileInput" accept=".mid,.midi" multiple style="display:none" onchange="handleBrowserFiles(this.files)" />
+                <button class="btn btn-accent" onclick="triggerFolderPicker()">📂 <span data-i18n="btn_load_folder">Chọn thư mục MIDI</span></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:46px;">#</th>
+                  <th data-i18n="col_name">Tên bài hát MIDI</th>
+                  <th data-i18n="col_status" style="width:110px;">Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody id="midiTableBody"></tbody>
+            </table>
+
+            <!-- Thanh phân trang: Tối đa 10 bài / trang -->
+            <div class="pagination">
+              <button class="btn" id="prevPageBtn" onclick="changePage(-1)" style="padding:5px 10px;">◀ <span data-i18n="page_prev">Trước</span></button>
+              <div class="page-nums" id="pageNumbersContainer"></div>
+              <button class="btn" id="nextPageBtn" onclick="changePage(1)" style="padding:5px 10px;"><span data-i18n="page_next">Tiếp</span> ▶</button>
+            </div>
+          </div>
+
+          <!-- Nút Nạp MIDI từ list nằm ngay bên dưới bảng danh sách -->
+          <div style="margin-top:12px;">
+            <button class="btn btn-accent" onclick="loadSelectedSongFromList()" style="width:100%;justify-content:center;padding:12px;font-size:14px;">
+              📥 <span data-i18n="btn_load_from_list">Nạp MIDI từ list</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Cột phải: Truy cập Menu Trợ Năng + Tùy chọn biểu diễn -->
+        <div>
+          <!-- Khung Cấp Quyền Trợ Năng & Thanh Nổi (Đã khôi phục đầy đủ) -->
+          <div class="card">
+            <div class="card-title">
+              <span data-i18n="perm_card_title">🔐 Cấp Quyền & Thanh Điều Khiển Nổi</span>
+            </div>
+            <div class="opt-row">
+              <span data-i18n="perm_acc_label">Quyền Trợ năng (Tự động ấn):</span>
+              <span id="accStatusBadge" class="perm-badge perm-missing" data-i18n="perm_check">Kiểm tra...</span>
+            </div>
+            <div class="opt-row">
+              <span data-i18n="perm_overlay_label">Quyền Cửa sổ nổi (Pop-up):</span>
+              <span id="overlayStatusBadge" class="perm-badge perm-missing" data-i18n="perm_check">Kiểm tra...</span>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+              <button class="btn btn-blue" onclick="openAccSettings()" style="width:100%;justify-content:center;">
+                ⚙️ <span data-i18n="btn_open_acc">Mở Menu Trợ Năng (Cấp quyền Tự động ấn)</span>
+              </button>
+              <button class="btn" onclick="openOvSettings()" style="width:100%;justify-content:center;">
+                🪟 <span data-i18n="btn_open_overlay">Cấp quyền Cửa sổ nổi (Hiển thị đè)</span>
+              </button>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <button class="btn btn-accent" onclick="startOverlayBar()" style="justify-content:center;">
+                  🚀 <span data-i18n="btn_start_bar">Bật Thanh Nổi</span>
+                </button>
+                <button class="btn btn-danger" onclick="stopOverlayBar()" style="justify-content:center;">
+                  ❌ <span data-i18n="btn_stop_bar">Tắt Thanh Nổi</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Khung Tùy chọn Biểu diễn -->
+          <div class="card">
+            <div class="card-title" data-i18n="options_title">🎼 Tùy chọn Biểu diễn</div>
+            <select class="full-select" id="presetModeSelect" onchange="onModeSelectChange()">
+              <option value="0" data-i18n="opt_mode_21">21 Phím Trắng (Chuyển nốt đen → trắng)</option>
+              <option value="1" data-i18n="opt_mode_36_stagger">36 Phím Đại Sư (Đủ Đen & Trắng - Lệch #)</option>
+              <option value="2" data-i18n="opt_mode_36_linear">36 Phím Đại Sư (Đủ Đen & Trắng - Lưới 3×12)</option>
+            </select>
+
+            <div class="opt-row">
+              <span data-i18n="opt_master">Chế độ đại sư (Master Mode - 36 phím)</span>
+              <input type="checkbox" id="chkMaster" onchange="document.getElementById('presetModeSelect').value=this.checked?'1':'0'; syncOptions();" />
+            </div>
+            <div class="opt-row">
+              <span data-i18n="opt_adaptive">Chuyển tông tự động (Adaptive Mapping)</span>
+              <input type="checkbox" id="chkAdaptive" checked onchange="syncOptions()" />
+            </div>
+            <div class="opt-row">
+              <span data-i18n="opt_chord">Đơn giản hóa hợp âm (Chords Simplification)</span>
+              <input type="checkbox" id="chkSimplify" onchange="syncOptions()" />
+            </div>
+            <div class="opt-row">
+              <span data-i18n="opt_noteoff">Ngắt nhịp theo nốt tắt (Respect Note Off)</span>
+              <input type="checkbox" id="chkNoteOff" onchange="syncOptions()" />
+            </div>
+            <div class="opt-row">
+              <span data-i18n="opt_loop">Tự động lặp lại bài khi hết</span>
+              <input type="checkbox" id="chkLoop" onchange="syncOptions()" />
+            </div>
+
+            <div style="margin-top:10px;">
+              <div style="font-size:12px;margin-bottom:4px;"><span data-i18n="opt_speed">Tốc độ phát</span>: <strong id="speedVal">100%</strong></div>
+              <input type="range" id="speedRange" min="25" max="250" value="100" style="width:100%" oninput="document.getElementById('speedVal').innerText=this.value+'%'; syncOptions();" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRANG 2: CẬP NHẬT ỨNG DỤNG & SAO LƯU VỊ TRÍ NÚT (KHÔNG CẦN GỠ CÀI LẠI) -->
+    <div id="page-update" style="display:none;">
+      <div class="card">
+        <div class="card-title">🔄 <span data-i18n="update_card_title">Cập nhật ứng dụng trực tiếp (Không cần gỡ bản cũ)</span></div>
+        <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:12px;" data-i18n="update_desc">
+          Từ phiên bản v1.0.8 này, ứng dụng đã được tích hợp chữ ký số cố định (Fixed Keystore) và tự động tăng mã phiên bản. Mỗi khi có bản APK mới, bạn chỉ cần chọn file APK mới để cài đè trực tiếp mà không cần gỡ ứng dụng cũ, giữ nguyên 100% vị trí nút và quyền Trợ năng!
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-accent" onclick="if(window.AndroidNative) AndroidNative.pickApkFileForUpdate()">
+            📦 <span data-i18n="btn_pick_apk">Chọn file .APK mới trên máy để Cập nhật ngay</span>
+          </button>
+        </div>
+        <div style="margin-top:12px;">
+          <label style="font-size:12px;color:var(--text-secondary);" data-i18n="update_url_label">Hoặc dán link tải bản cập nhật .APK trực tiếp:</label>
+          <div style="display:flex;gap:8px;margin-top:4px;">
+            <input type="text" class="full-input" id="updateUrlInput" placeholder="https://..." style="margin:0;flex:1;" />
+            <button class="btn btn-blue" onclick="openUpdateUrl()">🌐 <span data-i18n="btn_open_link">Tải & Cập nhật</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">💾 <span data-i18n="backup_card_title">Sao lưu & Khôi phục vị trí 21/36 nút cảm ứng</span></div>
+        <p style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:10px;" data-i18n="backup_desc">
+          Mỗi khi bạn kéo chỉnh vị trí nút trên thanh nổi và bấm Lưu, ứng dụng sẽ tự động sao lưu ra tệp <code>Download/WeWish_MIDI_KeyBackup.json</code>. Bạn cũng có thể sao chép hoặc khôi phục mã tọa độ nút tại đây bất cứ lúc nào:
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <button class="btn btn-accent" onclick="exportKeyBackup()">📤 <span data-i18n="btn_export_keys">Lấy mã Sao lưu vị trí nút</span></button>
+          <button class="btn btn-blue" onclick="importKeyBackup()">📥 <span data-i18n="btn_import_keys">Khôi phục vị trí nút từ mã</span></button>
+          <button class="btn btn-danger" onclick="if(window.AndroidNative) AndroidNative.resetDefaultKeyPositions()">↺ <span data-i18n="btn_reset_keys">Đặt về mặc định</span></button>
+        </div>
+        <textarea class="full-textarea" id="backupJsonArea" rows="4" placeholder="Mã tọa độ 21/36 nút cảm ứng sẽ hiện tại đây..."></textarea>
+      </div>
+    </div>
+
+    <!-- TRANG 3: CÀI ĐẶT NGÔN NGỮ -->
+    <div id="page-settings" style="display:none;">
+      <div class="card">
+        <div class="card-title">🌐 <span data-i18n="set_lang_label">Ngôn ngữ ứng dụng (Language)</span></div>
+        <select class="full-select" id="langSelect" onchange="setAppLanguage(this.value, true)">
+          <option value="vi">🇻🇳 Tiếng Việt</option>
+          <option value="zh">🇨🇳 中文 (Tiếng Trung)</option>
+          <option value="en">🇬🇧 English</option>
+          <option value="fr">🇫🇷 Français</option>
+        </select>
+        <p style="font-size:12px;color:var(--text-secondary);" data-i18n="set_lang_note">
+          Thay đổi ngôn ngữ sẽ dịch toàn bộ giao diện, trạng thái xử lý nốt nhạc MIDI và hướng dẫn sang ngôn ngữ bạn chọn.
+        </p>
+      </div>
+    </div>
+
+    <!-- Dòng thông tin tác giả ở dưới cùng -->
+    <div class="bottom-author-bar">
+      🪕 <strong>we wish MIDI Player PRO</strong> • <span data-i18n="author_label">Tác giả</span>: <strong>Anhlakexau98</strong>
+    </div>
+  </main>
+
+<script>
+  const i18nDict = {
+    vi: {
+      nav_player: "Trình phát MIDI", nav_update: "Cập nhật & Sao lưu nút", nav_settings: "Ngôn ngữ & Cài đặt",
+      btn_guide: "Hướng dẫn", btn_update_short: "Cập nhật", btn_close: "Đóng",
+      player_sub: "Chọn thư mục chứa MIDI, chọn bài hát từ danh sách và bấm Nạp MIDI từ list để tự động gảy đàn.",
+      status_loaded: "Bài đang nạp:", folder_default: "📁 Danh sách MIDI trong thư mục",
+      btn_load_folder: "Chọn thư mục MIDI", btn_load_from_list: "Nạp MIDI từ list",
+      col_name: "Tên bài hát MIDI", col_status: "Trạng thái",
+      page_prev: "Trước", page_next: "Tiếp",
+      perm_card_title: "🔐 Cấp Quyền & Thanh Điều Khiển Nổi",
+      perm_acc_label: "Quyền Trợ năng (Tự động ấn):", perm_overlay_label: "Quyền Cửa sổ nổi (Pop-up):",
+      perm_ok: "✅ Đã bật", perm_missing: "⚠️ Chưa bật", perm_check: "Đang kiểm tra...",
+      btn_open_acc: "Mở Menu Trợ Năng (Cấp quyền Tự động ấn)",
+      btn_open_overlay: "Cấp quyền Cửa sổ nổi (Hiển thị đè)",
+      btn_start_bar: "Bật Thanh Nổi", btn_stop_bar: "Tắt Thanh Nổi",
+      options_title: "🎼 Tùy chọn Biểu diễn",
+      opt_mode_21: "21 Phím Trắng (Chuyển nốt đen → trắng)",
+      opt_mode_36_stagger: "36 Phím Đại Sư (Đủ Đen & Trắng - Lệch #)",
+      opt_mode_36_linear: "36 Phím Đại Sư (Đủ Đen & Trắng - Lưới 3×12)",
+      opt_master: "Chế độ đại sư (Master Mode - 36 phím)",
+      opt_adaptive: "Chuyển tông tự động (Adaptive Mapping)",
+      opt_chord: "Đơn giản hóa hợp âm (Chords Simplification)",
+      opt_noteoff: "Ngắt nhịp theo nốt tắt (Respect Note Off)",
+      opt_loop: "Tự động lặp lại bài khi hết", opt_speed: "Tốc độ phát",
+      update_card_title: "Cập nhật ứng dụng trực tiếp (Không cần gỡ bản cũ)",
+      update_desc: "Ứng dụng đã tích hợp chữ ký số cố định và tự động sao lưu vị trí nút. Bạn có thể chọn file APK mới để cài đè trực tiếp mà không mất vị trí 21/36 nút hay quyền Trợ năng.",
+      btn_pick_apk: "Chọn file .APK mới trên máy để Cập nhật ngay",
+      update_url_label: "Hoặc dán link tải bản cập nhật .APK:", btn_open_link: "Tải & Cập nhật",
+      backup_card_title: "Sao lưu & Khôi phục vị trí 21/36 nút cảm ứng",
+      backup_desc: "Tọa độ nút được tự động lưu vào Download/WeWish_MIDI_KeyBackup.json. Bạn cũng có thể xuất/nhập thủ công tại đây:",
+      btn_export_keys: "Lấy mã Sao lưu vị trí nút", btn_import_keys: "Khôi phục vị trí nút từ mã", btn_reset_keys: "Đặt về mặc định",
+      set_lang_label: "Ngôn ngữ ứng dụng", set_lang_note: "Thay đổi ngôn ngữ sẽ dịch toàn bộ giao diện và thông tin xử lý MIDI.",
+      author_label: "Tác giả", guide_title: "Hướng dẫn sử dụng we wish MIDI",
+      status_selected: "Đang chọn", status_loaded_badge: "✅ Đã nạp", status_click: "Chạm để chọn",
+      guide_html: `<p><strong>1. Cấp quyền Trợ năng & Cửa sổ nổi:</strong> Bấm nút <strong>⚙️ Mở Menu Trợ Năng</strong> ở cột bên phải để bật quyền tự động chạm cho <em>we wish MIDI</em>, và cấp quyền <strong>🪟 Cửa sổ nổi</strong>.</p>
+        <p style="margin-top:8px;"><strong>2. Chọn thư mục nhạc MIDI:</strong> Bấm <strong>📂 Chọn thư mục MIDI</strong>, chọn thư mục chứa các file <code>.mid</code> và bấm xác nhận. Toàn bộ bài hát trong thư mục sẽ hiện ra danh sách (tối đa 10 bài/trang, chuyển trang ở bên dưới).</p>
+        <p style="margin-top:8px;"><strong>3. Nạp MIDI từ list:</strong> Chạm vào bài hát trong danh sách rồi bấm nút <strong>📥 Nạp MIDI từ list</strong> ngay phía dưới để nạp dữ liệu nốt nhạc.</p>
+        <p style="margin-top:8px;"><strong>4. Sắp xếp nút & Cập nhật không mất dữ liệu:</strong> Bấm <strong>🚀 Bật Thanh Nổi</strong>, vào game bấm <strong>🎯 Hiện phím</strong> để kéo chỉnh vị trí nút rồi bấm <strong>💾 Lưu & Ẩn</strong>. Tọa độ nút được tự động sao lưu và giữ nguyên khi cập nhật app!</p>`
+    },
+    en: {
+      nav_player: "MIDI Player", nav_update: "Update & Key Backup", nav_settings: "Language & Settings",
+      btn_guide: "Guide", btn_update_short: "Update", btn_close: "Close",
+      player_sub: "Select your MIDI folder, pick a song from the list and press Load MIDI from List to auto-play.",
+      status_loaded: "Loaded Song:", folder_default: "📁 MIDI Folder List",
+      btn_load_folder: "Select MIDI Folder", btn_load_from_list: "Load MIDI from List",
+      col_name: "MIDI Song Name", col_status: "Status",
+      page_prev: "Prev", page_next: "Next",
+      perm_card_title: "🔐 Permissions & Floating Bar",
+      perm_acc_label: "Accessibility (Auto-Tap):", perm_overlay_label: "Overlay Permission:",
+      perm_ok: "✅ Enabled", perm_missing: "⚠️ Disabled", perm_check: "Checking...",
+      btn_open_acc: "Open Accessibility Menu (Grant Auto-Tap)",
+      btn_open_overlay: "Grant Floating Overlay Permission",
+      btn_start_bar: "Start Floating Bar", btn_stop_bar: "Stop Floating Bar",
+      options_title: "🎼 Performance Options",
+      opt_mode_21: "21 White Keys (Auto transpose black → white)",
+      opt_mode_36_stagger: "36 Master Keys (Full Chromatic - Staggered #)",
+      opt_mode_36_linear: "36 Master Keys (Full Chromatic - Linear 3×12)",
+      opt_master: "Master Mode (36 keys)",
+      opt_adaptive: "Adaptive Key Mapping (Auto Transpose)",
+      opt_chord: "Chords Simplification",
+      opt_noteoff: "Respect Note Off Events",
+      opt_loop: "Loop Playback", opt_speed: "Playback Speed",
+      update_card_title: "In-App Update (Keep all settings & key positions)",
+      update_desc: "Signed with a persistent keystore and auto-backup. Select a new APK to update directly without uninstalling or losing your 21/36 button layout.",
+      btn_pick_apk: "Select new .APK file to Update Now",
+      update_url_label: "Or paste direct .APK update link:", btn_open_link: "Download & Update",
+      backup_card_title: "Backup & Restore 21/36 Touch Key Positions",
+      backup_desc: "Key coordinates are automatically backed up to Download/WeWish_MIDI_KeyBackup.json. You can also export/import here:",
+      btn_export_keys: "Export Key Layout Code", btn_import_keys: "Restore Key Layout", btn_reset_keys: "Reset Default",
+      set_lang_label: "App Language", set_lang_note: "Changing language translates all UI and MIDI status descriptions.",
+      author_label: "Author", guide_title: "How to use we wish MIDI",
+      status_selected: "Selected", status_loaded_badge: "✅ Loaded", status_click: "Tap to select",
+      guide_html: `<p><strong>1. Grant Permissions:</strong> Click <strong>⚙️ Open Accessibility Menu</strong> on the right panel to enable <em>we wish MIDI</em> auto-tap, and grant <strong>🪟 Floating Overlay</strong> permission.</p>
+        <p style="margin-top:8px;"><strong>2. Select MIDI Folder:</strong> Click <strong>📂 Select MIDI Folder</strong> and confirm the folder containing your <code>.mid</code> files. All songs will appear in the paginated list (10 songs per page).</p>
+        <p style="margin-top:8px;"><strong>3. Load MIDI from List:</strong> Tap a song in the list, then press <strong>📥 Load MIDI from List</strong> right below the table.</p>
+        <p style="margin-top:8px;"><strong>4. Arrange Keys & Seamless Updates:</strong> Click <strong>🚀 Start Floating Bar</strong>, use <strong>🎯 Hiện phím</strong> to drag keys over the in-game instrument, then save. Your layout is automatically backed up across updates!</p>`
+    },
+    zh: {
+      nav_player: "MIDI 播放器", nav_update: "应用更新与按键备份", nav_settings: "语言与设置",
+      btn_guide: "使用指南", btn_update_short: "更新", btn_close: "关闭",
+      player_sub: "选择包含MIDI的文件夹，从列表中点选歌曲并点击“从列表加载MIDI”即可自动弹奏。",
+      status_loaded: "当前加载:", folder_default: "📁 文件夹 MIDI 列表",
+      btn_load_folder: "选择 MIDI 文件夹", btn_load_from_list: "从列表加载 MIDI",
+      col_name: "MIDI 歌曲名称", col_status: "状态",
+      page_prev: "上一页", page_next: "下一页",
+      perm_card_title: "🔐 权限设置与悬浮控制栏",
+      perm_acc_label: "无障碍服务 (自动点击):", perm_overlay_label: "悬浮窗权限:",
+      perm_ok: "✅ 已开启", perm_missing: "⚠️ 未开启", perm_check: "检测中...",
+      btn_open_acc: "打开无障碍设置 (授权自动弹奏)",
+      btn_open_overlay: "授予悬浮窗权限 (显示在游戏上层)",
+      btn_start_bar: "启动悬浮栏", btn_stop_bar: "关闭悬浮栏",
+      options_title: "🎼 演奏选项",
+      opt_mode_21: "21白键模式 (黑键自动转白键)",
+      opt_mode_36_stagger: "36键大师模式 (全音阶错位 #)",
+      opt_mode_36_linear: "36键大师模式 (3×12线性网格)",
+      opt_master: "大师模式 (36键全音阶)",
+      opt_adaptive: "自动移调映射 (Adaptive Key Mapping)",
+      opt_chord: "和弦简化 (Chords Simplification)",
+      opt_noteoff: "遵循音符结束事件 (Respect Note Off)",
+      opt_loop: "单曲循环播放", opt_speed: "播放速度",
+      update_card_title: "应用直接更新 (无需卸载旧版，保留按键位置)",
+      update_desc: "已内置固定签名与自动按键备份。更新时直接选择新APK覆盖安装，100%保留您的21/36键坐标与无障碍权限。",
+      btn_pick_apk: "选择新 .APK 文件立即覆盖更新",
+      update_url_label: "或粘贴 .APK 更新下载链接:", btn_open_link: "下载并更新",
+      backup_card_title: "备份与恢复 21/36 触控按键位置",
+      backup_desc: "按键位置已自动备份至 Download/WeWish_MIDI_KeyBackup.json，您也可以在此手动导出或恢复：",
+      btn_export_keys: "导出按键坐标代码", btn_import_keys: "从代码恢复按键位置", btn_reset_keys: "恢复默认位置",
+      set_lang_label: "界面语言", set_lang_note: "切换语言将同步翻译所有界面与MIDI状态信息。",
+      author_label: "作者", guide_title: "we wish MIDI 使用指南",
+      status_selected: "已选中", status_loaded_badge: "✅ 已加载", status_click: "点击选择",
+      guide_html: `<p><strong>1. 开启无障碍与悬浮窗权限：</strong>点击右侧的<strong>⚙️ 打开无障碍设置</strong>开启 <em>we wish MIDI</em> 自动点击服务，并授予<strong>🪟 悬浮窗权限</strong>。</p>
+        <p style="margin-top:8px;"><strong>2. 选择 MIDI 文件夹：</strong>点击<strong>📂 选择 MIDI 文件夹</strong>并确认，文件夹内的所有 <code>.mid</code> 音乐将自动显示在列表中（每页最多10首，底部可翻页）。</p>
+        <p style="margin-top:8px;"><strong>3. 从列表加载 MIDI：</strong>点击列表中的歌曲，然后按表格下方的<strong>📥 从列表加载 MIDI</strong>。</p>
+        <p style="margin-top:8px;"><strong>4. 调整按键与无缝更新：</strong>启动悬浮栏后，在游戏内点击<strong>🎯 Hiện phím</strong>拖动按键并保存，按键坐标会自动备份，更新版本无需重新设置！</p>`
+    },
+    fr: {
+      nav_player: "Lecteur MIDI", nav_update: "Mise à jour & Sauvegarde", nav_settings: "Langue & Paramètres",
+      btn_guide: "Guide", btn_update_short: "Mise à jour", btn_close: "Fermer",
+      player_sub: "Sélectionnez votre dossier MIDI, choisissez un morceau dans la liste et cliquez sur Charger MIDI.",
+      status_loaded: "Morceau chargé :", folder_default: "📁 Liste MIDI du dossier",
+      btn_load_folder: "Choisir dossier MIDI", btn_load_from_list: "Charger MIDI depuis la liste",
+      col_name: "Nom du fichier MIDI", col_status: "Statut",
+      page_prev: "Préc", page_next: "Suiv",
+      perm_card_title: "🔐 Autorisations & Barre flottante",
+      perm_acc_label: "Accessibilité (Auto-Tap) :", perm_overlay_label: "Fenêtre flottante :",
+      perm_ok: "✅ Activé", perm_missing: "⚠️ Désactivé", perm_check: "Vérification...",
+      btn_open_acc: "Ouvrir le menu Accessibilité (Auto-Tap)",
+      btn_open_overlay: "Autoriser la superposition d'écran",
+      btn_start_bar: "Activer la barre", btn_stop_bar: "Fermer la barre",
+      options_title: "🎼 Options d'interprétation",
+      opt_mode_21: "21 Touches Blanches (Noires → Blanches auto)",
+      opt_mode_36_stagger: "36 Touches Maître (Chromatique décalé #)",
+      opt_mode_36_linear: "36 Touches Maître (Grille 3×12)",
+      opt_master: "Mode Maître (36 touches)",
+      opt_adaptive: "Transposition automatique (Adaptive Mapping)",
+      opt_chord: "Simplification des accords (Chords Simplification)",
+      opt_noteoff: "Respecter l'arrêt des notes (Respect Note Off)",
+      opt_loop: "Lecture en boucle", opt_speed: "Vitesse de lecture",
+      update_card_title: "Mise à jour directe (Sans désinstaller)",
+      update_desc: "Signature fixe et sauvegarde automatique intégrées. Installez le nouvel APK directement par-dessus l'ancien sans perdre vos positions de touches.",
+      btn_pick_apk: "Choisir un fichier .APK pour mettre à jour",
+      update_url_label: "Ou coller un lien de mise à jour .APK :", btn_open_link: "Télécharger",
+      backup_card_title: "Sauvegarder & Restaurer la position des 21/36 touches",
+      backup_desc: "Les coordonnées sont sauvegardées automatiquement dans Download/WeWish_MIDI_KeyBackup.json :",
+      btn_export_keys: "Exporter les coordonnées", btn_import_keys: "Restaurer les coordonnées", btn_reset_keys: "Réinitialiser",
+      set_lang_label: "Langue de l'application", set_lang_note: "Traduit toute l'interface et les informations MIDI.",
+      author_label: "Auteur", guide_title: "Guide d'utilisation we wish MIDI",
+      status_selected: "Sélectionné", status_loaded_badge: "✅ Chargé", status_click: "Appuyer",
+      guide_html: `<p><strong>1. Autorisations :</strong> Cliquez sur <strong>⚙️ Ouvrir le menu Accessibilité</strong> à droite pour activer <em>we wish MIDI</em>, ainsi que <strong>🪟 Fenêtre flottante</strong>.</p>
+        <p style="margin-top:8px;"><strong>2. Dossier MIDI :</strong> Cliquez sur <strong>📂 Choisir dossier MIDI</strong> et confirmez. Tous les fichiers <code>.mid</code> s'afficheront par page de 10 titres.</p>
+        <p style="margin-top:8px;"><strong>3. Charger depuis la liste :</strong> Touchez un morceau puis cliquez sur <strong>📥 Charger MIDI depuis la liste</strong> juste en dessous.</p>
+        <p style="margin-top:8px;"><strong>4. Sauvegarde auto :</strong> Vos positions de touches sont automatiquement conservées lors des mises à jour !</p>`
+    }
+  };
+
+  function buildMelodyNotes(pairs) {
+    let t = 0;
+    return pairs.map(p => {
+      const item = { startMs: t, durationMs: Math.max(40, p[1] - 30), midiNote: p[0] };
+      t += p[1];
+      return item;
+    });
+  }
+
+  let currentLang = localStorage.getItem('wewish_lang') || 'vi';
+  let songList = [
+    {
+      name: "Lan Đình Tự (Lanting Xu - Jay Chou).mid",
+      isBuiltin: true,
+      folderIndex: -1,
+      notes: buildMelodyNotes([
+        [64,300],[67,300],[69,300],[72,450],[71,150],[69,300],[71,300],[69,300],[67,300],[64,600],
+        [62,300],[64,300],[67,300],[69,450],[67,150],[64,300],[62,300],[60,300],[62,900],
+        [69,300],[72,300],[74,300],[76,450],[74,150],[72,300],[74,300],[72,300],[69,300],[67,600],
+        [64,300],[67,300],[69,450],[72,150],[71,300],[69,300],[67,300],[69,900]
+      ])
+    },
+    {
+      name: "Sứ Thanh Hoa (Blue and White Porcelain).mid",
+      isBuiltin: true,
+      folderIndex: -1,
+      notes: buildMelodyNotes([
+        [72,300],[71,300],[69,300],[67,300],[64,600],[69,300],[67,450],[64,150],[62,300],[64,300],[67,900],
+        [69,300],[71,300],[72,300],[74,300],[71,300],[69,300],[67,300],[64,300],[62,300],[64,300],[67,450],[64,150],[62,900],
+        [60,300],[62,300],[64,300],[67,300],[69,450],[67,150],[64,300],[62,300],[60,900]
+      ])
+    }
+  ];
+
+  let selectedSongIdx = 0;
+  let loadedSongIdx = 0;
+  let currentPage = 1;
+  const pageSize = 10; // Tối đa 10 bài hát trong 1 trang
+
+  function checkFirstLaunchLanguage() {
+    if (!localStorage.getItem('wewish_lang_chosen')) {
+      document.getElementById('langModal').classList.add('show');
+    }
+    setAppLanguage(currentLang, false);
+  }
+
+  function chooseInitialLanguage(lang) {
+    localStorage.setItem('wewish_lang_chosen', 'true');
+    document.getElementById('langModal').classList.remove('show');
+    setAppLanguage(lang, true);
+  }
+
+  function setAppLanguage(lang, save) {
+    currentLang = lang;
+    if (save) {
+      localStorage.setItem('wewish_lang', lang);
+      localStorage.setItem('wewish_lang_chosen', 'true');
+    }
+    document.getElementById('langSelect').value = lang;
+    const dict = i18nDict[lang] || i18nDict.vi;
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const k = el.getAttribute('data-i18n');
+      if (dict[k]) el.innerText = dict[k];
+    });
+    document.getElementById('guideContentBody').innerHTML = dict.guide_html;
+    renderTable();
+  }
+
+  function openGuideModal() {
+    document.getElementById('guideModal').classList.add('show');
+  }
+
+  function closeGuideModal() {
+    document.getElementById('guideModal').classList.remove('show');
+  }
+
+  function triggerFolderPicker() {
+    if (window.AndroidNative && window.AndroidNative.pickMidiFolder) {
+      window.AndroidNative.pickMidiFolder();
+    } else {
+      document.getElementById('fallbackFileInput').click();
+    }
+  }
+
+  // Callback từ MainActivity khi người dùng chọn xong Thư mục chứa MIDI
+  window.onNativeFolderScanned = function(folderName, jsonListStr) {
+    try {
+      const arr = JSON.parse(jsonListStr);
+      if (arr.length > 0) {
+        songList = arr.map(item => ({
+          name: item.name,
+          isBuiltin: false,
+          folderIndex: item.index,
+          notes: null
+        }));
+        selectedSongIdx = 0;
+        loadedSongIdx = -1;
+        currentPage = 1;
+        document.getElementById('folderStatusText').innerText = `📁 ${folderName}`;
+        renderTable();
+      } else {
+        alert("Thư mục bạn chọn không có file .mid hoặc .midi nào!");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Callback khi 1 bài MIDI trong thư mục được nạp thành công
+  window.onNativeMidiLoaded = function(fileName, rawCount, chordCount, shift) {
+    loadedSongIdx = selectedSongIdx;
+    document.getElementById('loadedSongName').innerText = fileName;
+    const mode = parseInt(document.getElementById('presetModeSelect').value || '0', 10);
+    const modeText = mode === 0 ? '21 Keys' : '36 Master Keys';
+    const shiftStr = shift > 0 ? ('+' + shift) : String(shift);
+    document.getElementById('loadedSongDetail').innerText =
+      `${rawCount} notes / ${chordCount} beats • Auto-Transpose: ${shiftStr} semitones • ${modeText}`;
+    renderTable();
+  };
+
+  // Callback cập nhật trạng thái quyền Trợ năng & Cửa sổ nổi
+  window.onPermissionStatusUpdate = function(accOn, overlayOn) {
+    const dict = i18nDict[currentLang] || i18nDict.vi;
+    const accEl = document.getElementById('accStatusBadge');
+    const ovEl = document.getElementById('overlayStatusBadge');
+    if (accEl) {
+      accEl.className = 'perm-badge ' + (accOn ? 'perm-ok' : 'perm-missing');
+      accEl.innerText = accOn ? dict.perm_ok : dict.perm_missing;
+    }
+    if (ovEl) {
+      ovEl.className = 'perm-badge ' + (overlayOn ? 'perm-ok' : 'perm-missing');
+      ovEl.innerText = overlayOn ? dict.perm_ok : dict.perm_missing;
+    }
+  };
+
+  function handleBrowserFiles(fileList) {
+    const items = [];
+    Array.from(fileList).forEach((f, idx) => {
+      if (f.name.toLowerCase().endsWith('.mid') || f.name.toLowerCase().endsWith('.midi')) {
+        items.push({ name: f.name, isBuiltin: false, folderIndex: idx, fileObj: f });
+      }
+    });
+    if (items.length > 0) {
+      songList = items;
+      selectedSongIdx = 0;
+      loadedSongIdx = -1;
+      currentPage = 1;
+      renderTable();
+    }
+  }
+
+  function renderTable() {
+    const dict = i18nDict[currentLang] || i18nDict.vi;
+    const tbody = document.getElementById('midiTableBody');
+    const totalPages = Math.max(1, Math.ceil(songList.length / pageSize));
+    if (currentPage > totalPages) currentPage = totalPages;
+
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    const pageItems = songList.slice(start, end);
+
+    document.getElementById('totalSongsBadge').innerText =
+      `${songList.length} MIDI • Page ${currentPage}/${totalPages} (Max 10/page)`;
+    document.getElementById('prevPageBtn').disabled = (currentPage <= 1);
+    document.getElementById('nextPageBtn').disabled = (currentPage >= totalPages);
+
+    // Hiển thị các nút chọn số trang
+    const pageNumsDiv = document.getElementById('pageNumbersContainer');
+    let pageBtnsHtml = '';
+    const maxButtons = 7;
+    let startP = Math.max(1, currentPage - 3);
+    let endP = Math.min(totalPages, startP + maxButtons - 1);
+    if (endP - startP < maxButtons - 1) startP = Math.max(1, endP - maxButtons + 1);
+
+    for (let p = startP; p <= endP; p++) {
+      pageBtnsHtml += `<button class="page-num-btn ${p === currentPage ? 'active' : ''}" onclick="goToPage(${p})">${p}</button>`;
+    }
+    pageNumsDiv.innerHTML = pageBtnsHtml;
+
+    tbody.innerHTML = pageItems.map((s, idx) => {
+      const realIdx = start + idx;
+      const isSel = (realIdx === selectedSongIdx);
+      const isLoaded = (realIdx === loadedSongIdx);
+      let badge = dict.status_click;
+      if (isLoaded) badge = `<strong style="color:#10b981">${dict.status_loaded_badge}</strong>`;
+      else if (isSel) badge = `<span style="color:#f59e0b">${dict.status_selected}</span>`;
+
+      return `
+        <tr class="${isSel ? 'active-row' : ''}" onclick="selectedSongIdx=${realIdx}; renderTable();" style="cursor:pointer;">
+          <td>${realIdx + 1}</td>
+          <td>🎵 ${s.name}</td>
+          <td>${badge}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function changePage(delta) {
+    const totalPages = Math.max(1, Math.ceil(songList.length / pageSize));
+    currentPage = Math.min(totalPages, Math.max(1, currentPage + delta));
+    renderTable();
+  }
+
+  function goToPage(p) {
+    currentPage = p;
+    renderTable();
+  }
+
+  // Khi bấm nút "Nạp MIDI từ list" ngay bên dưới bảng
+  function loadSelectedSongFromList() {
+    const s = songList[selectedSongIdx];
+    if (!s) return;
+    if (s.isBuiltin) {
+      if (window.AndroidNative && window.AndroidNative.loadPresetSongJson) {
+        window.AndroidNative.loadPresetSongJson(s.name, JSON.stringify(s.notes));
+      }
+      loadedSongIdx = selectedSongIdx;
+      document.getElementById('loadedSongName').innerText = s.name;
+      syncOptions();
+      renderTable();
+    } else if (window.AndroidNative && window.AndroidNative.loadSongFromFolderList) {
+      window.AndroidNative.loadSongFromFolderList(s.folderIndex);
+    }
+  }
+
+  function onModeSelectChange() {
+    const mode = parseInt(document.getElementById('presetModeSelect').value || '0', 10);
+    document.getElementById('chkMaster').checked = (mode > 0);
+    syncOptions();
+  }
+
+  function syncOptions() {
+    const mode = parseInt(document.getElementById('presetModeSelect').value || '0', 10);
+    const adaptive = document.getElementById('chkAdaptive').checked;
+    const simplify = document.getElementById('chkSimplify').checked;
+    const noteOff = document.getElementById('chkNoteOff').checked;
+    const loop = document.getElementById('chkLoop').checked;
+    const speed = parseInt(document.getElementById('speedRange').value || '100', 10);
+
+    if (window.AndroidNative && window.AndroidNative.updateSmartOptions) {
+      const infoStr = window.AndroidNative.updateSmartOptions(mode, adaptive, simplify, noteOff, loop, speed);
+      try {
+        const info = JSON.parse(infoStr);
+        document.getElementById('loadedSongName').innerText = info.songTitle;
+        const modeText = mode === 0 ? '21 Keys' : '36 Master Keys';
+        const shiftStr = info.transpose > 0 ? ('+' + info.transpose) : String(info.transpose);
+        document.getElementById('loadedSongDetail').innerText =
+          `${info.rawNotes} notes / ${info.chords} beats • Auto-Transpose: ${shiftStr} semitones • ${modeText}`;
+      } catch (e) {}
+    }
+  }
+
+  function openAccSettings() {
+    if (window.AndroidNative && window.AndroidNative.openAccessibilitySettings) {
+      window.AndroidNative.openAccessibilitySettings();
+    }
+  }
+
+  function openOvSettings() {
+    if (window.AndroidNative && window.AndroidNative.openOverlaySettings) {
+      window.AndroidNative.openOverlaySettings();
+    }
+  }
+
+  function startOverlayBar() {
+    syncOptions();
+    if (window.AndroidNative && window.AndroidNative.startFloatingOverlay) {
+      window.AndroidNative.startFloatingOverlay();
+    }
+  }
+
+  function stopOverlayBar() {
+    if (window.AndroidNative && window.AndroidNative.stopFloatingOverlay) {
+      window.AndroidNative.stopFloatingOverlay();
+    }
+  }
+
+  function openUpdateUrl() {
+    const url = (document.getElementById('updateUrlInput').value || '').trim();
+    if (!url) {
+      alert("Vui lòng nhập đường dẫn tải file .APK cập nhật!");
+      return;
+    }
+    if (window.AndroidNative && window.AndroidNative.openExternalUpdateLink) {
+      window.AndroidNative.openExternalUpdateLink(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  }
+
+  function exportKeyBackup() {
+    if (window.AndroidNative && window.AndroidNative.backupKeyPositions) {
+      const json = window.AndroidNative.backupKeyPositions();
+      document.getElementById('backupJsonArea').value = json;
+      navigator.clipboard?.writeText(json);
+      alert("✅ Đã xuất mã vị trí nút (và lưu vào Download/WeWish_MIDI_KeyBackup.json)!");
+    }
+  }
+
+  function importKeyBackup() {
+    const json = (document.getElementById('backupJsonArea').value || '').trim();
+    if (!json) {
+      alert("Vui lòng dán mã tọa độ nút vào ô bên dưới trước khi bấm Khôi phục!");
+      return;
+    }
+    if (window.AndroidNative && window.AndroidNative.restoreKeyPositions) {
+      window.AndroidNative.restoreKeyPositions(json);
+    }
+  }
+
+  function switchPage(pageId, btn) {
+    ['player', 'update', 'settings'].forEach(p => {
+      document.getElementById('page-' + p).style.display = (p === pageId) ? 'block' : 'none';
+    });
+    if (btn) {
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+  }
+
+  checkFirstLaunchLanguage();
+  renderTable();
+  if (window.AndroidNative && window.AndroidNative.loadSavedFolderIfAvailable) {
+    window.AndroidNative.loadSavedFolderIfAvailable();
+  }
+</script>
+</body>
+</html>
